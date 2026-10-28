@@ -1,5 +1,8 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from backend.app.config import settings
 from backend.app.api.routes_health import router as health_router
 from backend.app.api.routes_leads import router as leads_router
@@ -16,17 +19,10 @@ app = FastAPI(
     version=settings.version
 )
 
-# Enable CORS for Vite frontend development (supporting ports 5173, 5174, etc.)
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "http://localhost:3000",
-        "*"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,14 +34,27 @@ app.include_router(leads_router)
 app.include_router(workflows_router)
 app.include_router(approvals_router)
 
-# Also mount endpoints with /api prefix for Vite frontend proxy
+# Also mount endpoints with /api prefix for frontend
 app.include_router(health_router, prefix="/api")
 app.include_router(leads_router, prefix="/api")
 app.include_router(workflows_router, prefix="/api")
 app.include_router(approvals_router, prefix="/api")
 
-@app.get("/")
-def root():
+# Serve React frontend if dist directory exists (Render production mode)
+# Works whether the app is started from /opt/render/project/src or local project root
+_repo_root = os.environ.get("RENDER_PROJECT_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+DIST_DIR = os.path.join(_repo_root, "frontend", "dist")
+ASSETS_DIR = os.path.join(DIST_DIR, "assets")
+
+if os.path.exists(ASSETS_DIR):
+    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
+
+@app.get("/{full_path:path}")
+def serve_spa(full_path: str):
+    """Catch-all to serve index.html for SPA routing, or API info if dist not built."""
+    index_file = os.path.join(DIST_DIR, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
     return {
         "message": "BizForce AI Multi-Agent API is running with SQLite storage",
         "endpoints": {
@@ -59,4 +68,5 @@ def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.app.main:app", host=settings.host, port=settings.port, reload=True)
+    port = int(os.getenv("PORT", settings.port))
+    uvicorn.run("backend.app.main:app", host="0.0.0.0", port=port)

@@ -5,7 +5,11 @@ import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-DB_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../bizforce.db"))
+# Use /opt/render/project/src on Render (persistent disk path) or local project root otherwise
+_render_base = "/opt/render/project/src"
+_local_base = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+_base = _render_base if os.path.exists("/opt/render") else _local_base
+DB_FILE = os.path.join(_base, "bizforce.db")
 
 def get_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_FILE)

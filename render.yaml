@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: bizforce-ai
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: python3 -m uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ENVIRONMENT
+        value: production
+      - key: USE_MOCK_DB
+        value: "true"
+      - key: ANTHROPIC_API_KEY
+        sync: false     # Set manually in Render dashboard if you want Claude AI
